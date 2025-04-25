@@ -1,0 +1,15 @@
+[project]
+name = "move-audit-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "flask>=3.1.0",
+    "flask-sqlalchemy>=3.1.1",
+    "snowflake-id>=0.1.0",
+    "flask-restful>=0.3.10",
+    "pysui>=0.82.0",
+    "httpx[socks]>=0.27.2",
+    "requests>=2.32.3",
+]
