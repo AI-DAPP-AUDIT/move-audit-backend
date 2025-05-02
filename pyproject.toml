@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "move-audit-backend"
 version = "0.1.0"
@@ -12,4 +16,15 @@ dependencies = [
     "pysui>=0.82.0",
     "httpx[socks]>=0.27.2",
     "requests>=2.32.3",
+    "autogen-agentchat>=0.5.5",
+    "autogen-ext[azure,openai]>=0.5.5",
+    "chromadb>=1.0.7",
+    "mcp>=1.6.0",
+    "markitdown>=0.1.1",
+    "markdown>=3.8",
+    "weasyprint>=65.1",
+    "pydyf>=0.11.0",
 ]
+
+[tool.setuptools]
+packages = ["app"]

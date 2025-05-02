@@ -1,6 +1,6 @@
 from flask_restful import Resource, reqparse
 from app.models.order import Order, db
-from app.pkg.sui import SuiClient
+from app.pkg.sui.sui import SuiClient
 from flask import request
 
 class OrderResource(Resource):
@@ -11,6 +11,7 @@ class OrderResource(Resource):
     def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument('status', type=str, required=False)
+        parser.add_argument('address', type=str, required=True)
         args = parser.parse_args()
         
        
@@ -18,6 +19,14 @@ class OrderResource(Resource):
             new_order = Order()
             if args['status']:
                 new_order.status = args['status']
+            if args['address']:
+                new_order.address = args['address']
+            else:
+                return {
+                    'message': 'ERR',
+                    'error': 'address can not be empty'
+                }, 400
+            
             db.session.add(new_order)
             db.session.commit()
             

@@ -5,8 +5,9 @@ from flask_cors import CORS
 from app.models.order import db, Order, OrderStatus
 from app.api.order import OrderResource
 from app.api.audit import AuditResource
-from app.pkg.sui import SuiClient
+from app.pkg.sui.sui import SuiClient
 import tomllib
+from app.pkg.agents.manager import ClientManager
 
 app = Flask(__name__)
 api = Api(app)
@@ -46,6 +47,7 @@ sui_client = SuiClient(url=SUI_URL)
 os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
 
 db.init_app(app)
+client_manager = ClientManager(app.config['openai']['model'], app.config['openai']['api_key'], app)
 
 def init_db():
     with app.app_context():
@@ -53,7 +55,9 @@ def init_db():
         print("database create success！")
 
 api.add_resource(OrderResource, '/api/orders', resource_class_kwargs={'sui_client': sui_client})
-api.add_resource(AuditResource, '/api/audits', resource_class_kwargs={'sui_client': sui_client})
+api.add_resource(AuditResource, '/api/audits', resource_class_kwargs={'sui_client': sui_client, 'client_manager': client_manager})
+
+
 
 @app.route('/')
 def hello_world():
@@ -61,7 +65,9 @@ def hello_world():
 
 def main():
     init_db()
+    client_manager.run()
     app.run(debug=True)
+    
 
 if __name__ == "__main__":
     main()

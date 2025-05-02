@@ -10,4 +10,6 @@ wheels/
 .venv
 *.db
 tmp
-# config/config.test.toml
+config/config.test.toml
+
+config.test.toml

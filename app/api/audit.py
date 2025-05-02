@@ -2,12 +2,15 @@ from flask_restful import Resource, reqparse
 import os
 from flask import request, jsonify
 from werkzeug.utils import secure_filename
-from app.pkg.sui import SuiClient
+from app.pkg.sui.sui import SuiClient
 from app.models.order import Order, db, OrderStatus
+from app.pkg.agents.manager import ClientManager
+from app.pkg.agents.audit import AuditStatus
 
 class AuditResource(Resource):
-    def __init__(self, sui_client: SuiClient):
+    def __init__(self, sui_client: SuiClient, client_manager: ClientManager):
         self.sui_client = sui_client
+        self.client_manager = client_manager
         super(AuditResource, self).__init__()
 
     def post(self):
@@ -58,6 +61,20 @@ class AuditResource(Resource):
                     saved_files.append(filename)
                 except Exception as e:
                     return {'message': f'Failed to save file {filename}: {e}'}, 500
+                
+
+
+        try:
+            print("create client =========\n")
+            self.client_manager.create(orderId, temp_dir)
+            print(f"Updating order status for orderId: {orderId}")
+            result = db.session.query(Order).filter_by(order_id=orderId).update({'status': OrderStatus.USED})
+            print(f"Update result: {result}")
+            db.session.commit()
+            print("create client success =========\n")
+        except Exception as e:
+            print("create client error: ", e)
+            return {'message': f'Create client error'}, 500
 
         return {
             'message': 'OK',
@@ -67,10 +84,8 @@ class AuditResource(Resource):
         }, 200
 
     def verify(self, digest: str, orderId: str):
-        # 1. 根据 orderId 查询订单
         order = db.session.query(Order).filter_by(order_id=orderId).first()
 
-        # 2. 检查订单是否存在
         if not order:
             print(f"Order with orderId {orderId} not found.")
             return False
@@ -78,14 +93,7 @@ class AuditResource(Resource):
         if order.status == OrderStatus.USED:
             print(f"Order {orderId} has already been used.")
             return False
-        
-        
-        # 检查订单状态，如果已使用或已有摘要，则可能需要阻止重复处理？（根据业务逻辑决定）
-        # if order.status == OrderStatus.USED or order.digest:
-        #     print(f"Order {orderId} has already been processed or used.")
-        #     return False
-
-        # 3. 调用 Sui 客户端进行链上验证
+    
         try:
             transactions = self.sui_client.query(digest)
             print("transactions: ", transactions)
@@ -105,9 +113,6 @@ class AuditResource(Resource):
                  print(f"Missing parsedJson or packageId in Sui transaction result for digest {digest}")
                  return False
 
-            # ---- 在这里添加您的 Sui 交易验证逻辑 ----
-            # 例如：检查 packageId, amount, event中的order_id等
-            # 注意：下面的 packageId 和 amount 是示例值，请替换为您的实际值
             expected_package_id = "0x01122779d9e84092859fb998fa020a905e666dc273c42f0ba9766ec2eb7f1e3b"
             expected_amount = "100000"
 
@@ -131,22 +136,50 @@ class AuditResource(Resource):
             if order_id_string != orderId:
                  print(f"OrderId mismatch. Expected from DB: {orderId}, got from Sui: {order_id_string}")
                  return False
-            # ---- Sui 验证逻辑结束 ----
 
-
-            # 4. 如果 Sui 验证通过，更新订单的 digest
             try:
-                # 可以考虑同时更新状态，例如从未支付/待处理更新为已支付
                 db.session.query(Order).filter_by(id=order.id).update({'digest': digest, 'status': OrderStatus.PAID})
                 db.session.commit()
                 print(f"Successfully verified and updated digest for order {orderId}")
                 return True
             except Exception as e:
-                db.session.rollback() # 如果更新失败，回滚事务
+                db.session.rollback()
                 print(f"Failed to update order {orderId} with digest {digest}: {e}")
                 return False
 
         except Exception as e:
             print(f"Error during Sui client query or verification for digest {digest}: {e}")
             return False
+        
+    
+    def get(self):
+        orderId = request.args.get('orderId')
+        if not orderId:
+            return {'message': 'orderId can not be null'}, 400
+        
+        order = db.session.query(Order).filter_by(order_id=orderId).first()
+        if not order:
+            return {'message': 'order not exist'}, 400
+        
+        if order.status == OrderStatus.PENDING:
+            return {'message': 'order not paid'}, 400
+        
+        blodId = ""
+        directory = ""
+        status = ""
+
+        if order.status == OrderStatus.USED and order.blob_id != "":
+            blodId = order.blob_id
+            directory = os.path.join('tmp', order.digest, "report.pdf")
+            status = AuditStatus.Reported.value
+        else:
+            client = self.client_manager.get(orderId)
+            if not client:
+                return {'message': 'client not exist'}, 400
+            blodId = client.getBlobId()
+            directory = client.getDirectory()
+            status = client.getStatus()
+
+        return {'message': 'OK', 'status': status, 'blodId': blodId, "directory": directory}, 200
+        
         
