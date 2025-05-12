@@ -2,7 +2,7 @@
 path = "deploy/orders.db"
 
 [sui]
-url = "https://fullnode.mainnet.sui.io:443"
+url = "https://fullnode.testnet.sui.io:443"
 
 [cors]
 origins = ["*"]
