@@ -15,7 +15,6 @@ from enum import Enum
 import json
 import logging
 
-logger = logging.getLogger(__name__)
 class AuditStatus(Enum):
     PENDING = "pending"
     Reading = "reading"
@@ -26,14 +25,14 @@ class AuditStatus(Enum):
 
 
 def extract_markdown_content(text: str) -> str:
-    pattern = r"```markdown\n(.*?)```"
+    pattern = r"```markdown\n([\s\S]*)```"
     match = re.search(pattern, text, re.DOTALL)
     if match:
         return match.group(1).strip()
     return text
 
 class Client:
-    def __init__(self, model: str, api_key: str, directory: str, order_id: str):
+    def __init__(self, model: str, api_key: str, directory: str, order_id: str, logger: logging.Logger):
         self.model = model
         self.api_key = api_key
         self.directory = directory
@@ -41,6 +40,7 @@ class Client:
         self.audit_path = self.directory + "/report.pdf"
         self.blob_id = ""
         self.order_id = order_id
+        self.logger = logger
         self.model_client = OpenAIChatCompletionClient(
             model=model,
             api_key=api_key,
@@ -65,11 +65,11 @@ class Client:
     async def close(self):
         await self.model_client.close()
         await self.openapi_client.close()
-        logger.debug("Successfully closed client", self.directory, self.blob_id, self.status)
+        self.logger.debug("Successfully closed client %s, %s, %s", self.directory, self.blob_id, self.status)
 
 
     async def begin(self):
-        print("contract file directory==========\n", self.directory)
+        self.logger.debug("begin contract file directory==========\n %s", self.directory)
         self.status = AuditStatus.Reading
         server_params = StdioServerParams(
             command="mcp-filesystem-server", args=[self.directory]
@@ -108,7 +108,8 @@ class Client:
                 if result.messages[i].source == "OutputAgent":
                     resultStr = result.messages[i].content
                     break
-            print("resultStr ===============: ", resultStr)
+
+            self.logger.debug("orderId %s, resultStr==========\n %s", self.order_id, resultStr)
             self.status = AuditStatus.Auditted         
             markdown_content = extract_markdown_content(resultStr)
             html_text = markdown(markdown_content)
@@ -118,7 +119,7 @@ class Client:
             response = publisher.upload(markdown_content)
             uploadRes = json.loads(response.text)
             self.blob_id = uploadRes["newlyCreated"]["blobObject"]["id"]
-            print("blob_id: ",response.text, self.blob_id)
+            self.logger.debug("orderId %s, blob_id: %s", self.order_id, self.blob_id)
 
             self.status = AuditStatus.Reported
             return self.blob_id

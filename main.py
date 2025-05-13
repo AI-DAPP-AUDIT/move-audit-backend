@@ -8,22 +8,50 @@ from app.api.audit import AuditResource
 from app.pkg.sui.sui import SuiClient
 import tomllib
 from app.pkg.agents.manager import ClientManager
+import logging
+from logging.handlers import RotatingFileHandler
 
 app = Flask(__name__)
 api = Api(app)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
+log_dir = 'logs'
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
+logger = app.logger
+logger.setLevel(logging.DEBUG)
+
+file_handler = RotatingFileHandler(
+    os.path.join(log_dir, 'app.log'),
+    maxBytes=10*1024*1024,
+    backupCount=5
+)
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+))
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+console_handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(message)s'
+))
+
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
 
 config_file = os.path.join(BASE_DIR, "config/config.toml" if os.getenv("PROD") else "config/config.test.toml")
-print("Loading config file: ", config_file)
+logger.info("Loading config file: %s", config_file)
 
 
 with open(config_file, 'rb') as f:
     config = tomllib.load(f)
     app.config.update(config)
 
-print("Config loaded successfully:", app.config)
+logger.info("Config loaded successfully:", app.config)
 
 
 CORS(app, resources={
@@ -66,7 +94,7 @@ def hello_world():
 def main():
     init_db()
     client_manager.run()
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)
     
 
 if __name__ == "__main__":

@@ -13,3 +13,4 @@ tmp
 config/config.test.toml
 
 config.test.toml
+logs/*
