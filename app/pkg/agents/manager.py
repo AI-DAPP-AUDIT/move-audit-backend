@@ -41,9 +41,9 @@ class ClientManager:
                 order_id = client.getOrderId()
                 self.logger.info("Starting to process client task")
                 try:
-                    blob_id = await client.begin()
+                    blob_id, object_id = await client.begin()
                     with self.app.app_context():
-                        db.session.query(Order).filter_by(order_id=order_id).update({'blob_id': blob_id})
+                        db.session.query(Order).filter_by(order_id=order_id).update({'blob_id': blob_id, 'object_id': object_id})
                         db.session.commit()
                     self.logger.info("Successfully completed client task %s, %s", blob_id, order_id)
 

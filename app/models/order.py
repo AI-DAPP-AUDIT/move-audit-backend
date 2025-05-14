@@ -19,6 +19,7 @@ class Order(db.Model):
     status = db.Column(db.Enum(OrderStatus), nullable=False, default=OrderStatus.PENDING)
     digest = db.Column(db.String(64), nullable=True, default="")
     blob_id = db.Column(db.String(64), nullable=True, default="")
+    object_id = db.Column(db.String(64), nullable=True, default="")
     created_at = db.Column(db.Integer, default=lambda: int(datetime.now().timestamp()))
     updated_at = db.Column(db.Integer, default=lambda: int(datetime.now().timestamp()), onupdate=lambda: int(datetime.now().timestamp()))
 

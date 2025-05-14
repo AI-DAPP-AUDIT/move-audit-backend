@@ -39,6 +39,7 @@ class Client:
         self.status = AuditStatus.PENDING
         self.audit_path = self.directory + "/report.pdf"
         self.blob_id = ""
+        self.object_id = ""
         self.order_id = order_id
         self.logger = logger
         self.model_client = OpenAIChatCompletionClient(
@@ -55,6 +56,9 @@ class Client:
     
     def getBlobId(self):
         return self.blob_id
+    
+    def getObjectId(self):
+        return self.object_id
 
     def getDirectory(self):
         return self.directory
@@ -116,13 +120,17 @@ class Client:
             HTML(string=html_text).write_pdf(target = self.audit_path)
             self.status = AuditStatus.Reporting
             publisher = Publish()
-            response = publisher.upload(markdown_content)
+            with open(self.audit_path, "rb") as f:
+                pdf_content = f.read()
+            response = publisher.upload(pdf_content)
+            self.logger.debug("upload walrus orderId %s, response: %s", self.order_id, response.text)
             uploadRes = json.loads(response.text)
-            self.blob_id = uploadRes["newlyCreated"]["blobObject"]["id"]
-            self.logger.debug("orderId %s, blob_id: %s", self.order_id, self.blob_id)
+            self.blob_id = uploadRes["newlyCreated"]["blobObject"]["blobId"]
+            self.object_id = uploadRes["newlyCreated"]["blobObject"]["id"]
+            self.logger.debug("orderId %s, blob_id: %s, object_id: %s", self.order_id, self.blob_id, self.object_id)
 
             self.status = AuditStatus.Reported
-            return self.blob_id
+            return self.blob_id, self.object_id
         except Exception as e:
             print(f"audit error: {str(e)}")
-            return ""
+            return "", ""
