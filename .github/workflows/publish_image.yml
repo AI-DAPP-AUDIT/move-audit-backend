@@ -30,7 +30,7 @@ jobs:
             console.log("Release version:", version);
             return version;
           } else {
-            return 'alpha';
+            return 'latest';
           }
 
     - name: Build the Docker image
